@@ -2,6 +2,11 @@ Option Explicit
 
 Private http As Object
 
+Enum fsType
+    INCOME_STMT = 0 '"incomestatements"
+    BALANCE_STMT = 1 ' "balancesheet"
+End Enum
+
 Private Sub Class_Initialize()
     Set http = CreateObject("MSXML2.XMLHTTP.3.0")
 End Sub
@@ -173,6 +178,35 @@ Public Function SZSE_Dividend(Optional ByVal id As String = "1") As Dicts
     Set doc = Nothing
     
 End Function
+
+
+Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As Integer, Optional ByVal mtype As Integer = fsType.INCOME_STMT) As Lists
+    
+    Dim d As String
+    Dim yyyy As String
+    Dim mm As String
+    Dim l As Lists
+    Dim stpye As String
+    
+    stpye = Array("incomestatements", "balancesheet")(mtype)
+    code = format(code, "000000")
+    
+    Dim doc As MSHTML.HTMLDocument
+    
+    d = format(DateSerial(year, quarter * 3 + 1, 0), "yyyy-mm-dd")
+    yyyy = year & ""
+    mm = Replace(d, yyyy, "")
+    
+    Set doc = post("http://www.cninfo.com.cn/information/stock/" & stpye & "_.jsp?stockCode=" & code, "yyyy=" & yyyy & "&mm=" & mm & "&cwzb=" & stpye)
+    
+    With domToList(".zx_left td", doc).subgroupBy(2, 2)
+        Set fs = .slice(0, , 2).addAll(.slice(1, , 2))
+    End With
+    
+    Set doc = Nothing
+    
+End Function
+
 
 Private Function post(ByVal url As String, Optional ByVal data As String) As MSHTML.HTMLDocument
     
