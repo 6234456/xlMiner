@@ -5,6 +5,7 @@ Private http As Object
 Enum fsType
     INCOME_STMT = 0 '"incomestatements"
     BALANCE_STMT = 1 ' "balancesheet"
+    CASHFLOW_STMT = 2 ' "cashflow"
 End Enum
 
 Private Sub Class_Initialize()
@@ -22,7 +23,7 @@ Public Function SZSE_Profile(Optional ByVal query As String = "0", Optional ByVa
     
     With http
         .Open "POST", "http://xbrl.cninfo.com.cn/do/stockreserch/getcompanybyprefix", False
-        .setRequestHeader "content-type", "application/x-www-form-urlencoded"
+        .setRequestHeader "content-type", "application/x-www-form-urlencoded; "
         .send "ticker=" & query & "&limit=" & limit & "&date=365"
         
         For Each i In Split(.responseText, ",")
@@ -188,7 +189,7 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     Dim l As Lists
     Dim stpye As String
     
-    stpye = Array("incomestatements", "balancesheet")(mtype)
+    stpye = Array("incomestatements", "balancesheet", "cashflow")(mtype)
     code = format(code, "000000")
     
     Dim doc As MSHTML.HTMLDocument
@@ -199,22 +200,53 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     
     Set doc = post("http://www.cninfo.com.cn/information/stock/" & stpye & "_.jsp?stockCode=" & code, "yyyy=" & yyyy & "&mm=" & mm & "&cwzb=" & stpye)
     
-    With domToList(".zx_left td", doc).subgroupBy(2, 2)
-        Set fs = .slice(0, , 2).addAll(.slice(1, , 2))
+    With domToList(".zx_left td", doc)
+        If .length > 0 Then
+            With .subgroupBy(2, 2)
+                Set fs = .slice(0, , 2).addAll(.slice(1, , 2))
+            End With
+        Else
+            Dim reg As Object
+            Set reg = CreateObject("vbscript.regexp")
+            reg.pattern = "\/(\w+?\.html)(?:(?:""|')?;?)"
+            reg.Global = True
+
+            Dim tmp As String
+            tmp = post("http://www.cninfo.com.cn/information/stock/" & stpye & "_.jsp?stockCode=" & code, "yyyy=" & yyyy & "&mm=" & mm & "&cwzb=" & stpye, True)
+            tmp = reg.Execute(tmp)(0).submatches(0)
+    
+            Set doc = post("http://www.cninfo.com.cn/information/" & stpye & "/" & tmp)
+            Set l = domToList(".zx_left td", doc)
+            
+            Dim i
+            
+            For i = 0 To l.length - 1
+          '      l.setVal i, recode(l.getVal(i))
+            Next i
+
+            With l.subgroupBy(2, 2)
+                Set fs = .slice(0, , 2).addAll(.slice(1, , 2))
+            End With
+
+        End If
     End With
     
     Set doc = Nothing
     
 End Function
 
+'  https://analystcave.com/vba-reference-functions/vba-string-functions/vba-strconv-function/
+' locale code of PRC 804
+Private Function recode(src As String, Optional fromCharSetLocale As Long = &H804, Optional toCharSetLocale As Long = &H403) As String
 
-Private Function post(ByVal url As String, Optional ByVal data As String) As MSHTML.HTMLDocument
-    
-    Dim doc As MSHTML.HTMLDocument
-    
+    recode = StrConv(StrConv(src, vbFromUnicode, fromCharSetLocale), vbUnicode, toCharSetLocale)
+
+End Function
+
+Private Function post(ByVal url As String, Optional ByVal data As String, Optional ByVal asText As Boolean = False)
     With http
         .Open "POST", url, False
-        .setRequestHeader "content-type", "application/x-www-form-urlencoded"
+        .setRequestHeader "content-type", "application/x-www-form-urlencoded; charset=utf-8"
         If IsMissing(data) Or data = "" Then
             .send
         Else
@@ -222,16 +254,23 @@ Private Function post(ByVal url As String, Optional ByVal data As String) As MSH
         End If
         
         If .readyState = 4 And .Status = 200 Then
-            Set doc = New MSHTML.HTMLDocument
-            doc.body.innerHTML = .responseText
+            If asText Then
+                post = Trim(.responseText)
+            Else
+                Dim doc As MSHTML.HTMLDocument
+                Set doc = New MSHTML.HTMLDocument
+                
+                
+                doc.body.innerHTML = Trim(.responseText)
+                
+                Set post = doc
+                Set doc = Nothing
+            End If
         Else
             MsgBox "Error" & vbNewLine & "Ready state: " & .readyState & _
             vbNewLine & "HTTP request status: " & .Status
         End If
     End With
-    
-    Set post = doc
-    Set doc = Nothing
     
 End Function
 
@@ -256,27 +295,29 @@ Private Function domToList(ByRef query As String, ByRef doc As MSHTML.HTMLDocume
     
     Set j = doc.querySelectorAll(query)
     
-    If elementAsArray Then
-        If IsMissing(childQuery) Or childQuery = "" Then
-            If tabSep Then
-                For i = 0 To j.length - 1
-                    l.add l1.fromArray(Split(j.Item(i).innerText, Chr(9)))
-                Next i
+    If j.length > 0 Then
+        If elementAsArray Then
+            If IsMissing(childQuery) Or childQuery = "" Then
+                If tabSep Then
+                    For i = 0 To j.length - 1
+                        l.add l1.fromArray(Split(j.Item(i).innerText, Chr(9)))
+                    Next i
+                Else
+                    For i = 0 To j.length - 1
+                        l.add l1.fromArray(Split(j.Item(i).innerText, Chr(13)))
+                    Next i
+                End If
+                
             Else
                 For i = 0 To j.length - 1
-                    l.add l1.fromArray(Split(j.Item(i).innerText, Chr(13)))
+                    l.add domToList(childQuery, nodeToDom(j.Item(i).outerHTML))
                 Next i
             End If
-            
         Else
             For i = 0 To j.length - 1
-                l.add domToList(childQuery, nodeToDom(j.Item(i).outerHTML))
+                l.add j.Item(i).innerText
             Next i
         End If
-    Else
-        For i = 0 To j.length - 1
-            l.add j.Item(i).innerText
-        Next i
     End If
     
     Set domToList = l
