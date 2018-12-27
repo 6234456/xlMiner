@@ -31,6 +31,13 @@ Sub trail()
 End Sub
 
 
+Private Sub s()
 
+    Dim m1 As New xlMiner
+   ' m1.DE_law("hgb", "1", True).p
+   Debug.Print m1.DE_law("hgb", "285")(0)
+   Debug.Print m1.DE_law("hgb", "285")(1).getVal(0)
+
+End Sub
 
 
