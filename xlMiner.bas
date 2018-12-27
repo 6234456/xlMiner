@@ -1,3 +1,13 @@
+ '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+'@desc                                     Util Class xlMiner
+'@author                                   Qiou Yang
+'@license                                  MIT
+'@lastUpdate                               27.12.2018
+'                                          mining German Laws
+'@TODO
+'
+''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
+
 Option Explicit
 
 Private http As Object
@@ -28,7 +38,7 @@ Public Function SZSE_Profile(Optional ByVal query As String = "0", Optional ByVa
         
         For Each i In Split(.responseText, ",")
             j = Split(i, "#")
-            d.dict("SZ" & format(j(0), "000000")) = j
+            d.dict("SZ" & Format(j(0), "000000")) = j
         Next i
     End With
     
@@ -49,7 +59,7 @@ Public Function SZSE_GeneralInfo(Optional ByVal id As String = "1") As Dicts
     Dim l As New Lists
     Dim l1 As New Lists
     
-    id = format(id, "000000")
+    id = Format(id, "000000")
     
     With http
         .Open "POST", "http://xbrl.cninfo.com.cn/do/generalinfo/getcompanygeneralinfo", False
@@ -101,7 +111,7 @@ Public Function SZSE_Punishment(Optional ByVal id As String = "1") As Dicts
     Dim cnt As Integer
     cnt = 1
     
-    id = format(id, "000000")
+    id = Format(id, "000000")
     
     Set doc = post("http://xbrl.cninfo.com.cn/do/sincerelycase/getpunishmentdate", "ticker=" & id & "&page=" & cnt)
     total = CInt(doc.querySelector("#pageCount").getAttribute("value"))
@@ -146,7 +156,7 @@ Public Function SZSE_Dividend(Optional ByVal id As String = "1") As Dicts
     Dim cnt As Integer
     cnt = 1
     
-    id = format(id, "000000")
+    id = Format(id, "000000")
     
     
     Set doc = post("http://xbrl.cninfo.com.cn/do/dividend/getdividendhistory", "ticker=" & id & "&page=" & cnt)
@@ -180,6 +190,67 @@ Public Function SZSE_Dividend(Optional ByVal id As String = "1") As Dicts
     
 End Function
 
+'@return Array of 3 elements, with the first element of desc and second list of content, third next fullurl
+Public Function DE_law(Optional ByVal law As String = "hgb", Optional ByVal parag As String = "1", Optional ByVal tillEnd As Boolean = False, Optional ByVal fullUrl As String = "") As Variant
+    On Error GoTo hdl  ' wenn kein Weiter vorhanden
+    
+        Dim root As String
+        root = "https://www.gesetze-im-internet.de/" & StrConv(law, vbLowerCase) & "/"
+        
+        Dim doc As MSHTML.HTMLDocument
+        
+        If fullUrl = "" Then
+            fullUrl = root & "__" & parag & ".html"
+        End If
+        
+        Set doc = post(fullUrl)
+
+        Dim title As String
+        title = doc.querySelector(".jnentitel").innerText
+        
+        Dim l As New Lists
+        Dim i, v
+        
+        Dim j As Object
+        Set j = doc.querySelectorAll(".jurAbsatz")  ' for each not fully supported by querySelectorAll
+        
+        For i = 0 To j.length - 1
+             l.add j.Item(i).innerText
+        Next i
+        
+        Dim u As String
+        u = doc.querySelector("#blaettern_weiter > a").getAttribute("href")
+        
+        If InStr(u, "about:") Then
+            u = Right(u, Len(u) - 6)
+        End If
+           
+        If Not tillEnd Then
+            DE_law = Array(parag & "-" & title, l, root & u)
+        Else
+            Dim l1 As New Lists
+            Dim this
+            
+            this = Array(parag & "-" & title, l, root & u)
+            l1.add this
+            
+            Do While True
+                this = DE_law(fullUrl:=this(2))
+                l1.add this
+            Loop
+    
+hdl:
+            Set DE_law = l1
+            Set l1 = Nothing
+           
+        End If
+        
+        Set l = Nothing
+        Set j = Nothing
+        Set doc = Nothing
+
+End Function
+
 
 Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As Integer, Optional ByVal mtype As Integer = fsType.INCOME_STMT) As Lists
     
@@ -190,11 +261,11 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     Dim stpye As String
     
     stpye = Array("incomestatements", "balancesheet", "cashflow")(mtype)
-    code = format(code, "000000")
+    code = Format(code, "000000")
     
     Dim doc As MSHTML.HTMLDocument
     
-    d = format(DateSerial(year, quarter * 3 + 1, 0), "yyyy-mm-dd")
+    d = Format(DateSerial(year, quarter * 3 + 1, 0), "yyyy-mm-dd")
     yyyy = year & ""
     mm = Replace(d, yyyy, "")
     
@@ -243,7 +314,7 @@ Private Function recode(src As String, Optional fromCharSetLocale As Long = &H80
 
 End Function
 
-Private Function post(ByVal url As String, Optional ByVal data As String, Optional ByVal asText As Boolean = False)
+Private Function post(ByVal url As String, Optional ByVal data As String, Optional ByVal asText As Boolean = False) As MSHTML.HTMLDocument
     With http
         .Open "POST", url, False
         .setRequestHeader "content-type", "application/x-www-form-urlencoded; charset=utf-8"
