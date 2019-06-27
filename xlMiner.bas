@@ -1,15 +1,14 @@
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '@desc                                     Util Class xlMiner
 '@author                                   Qiou Yang
-'@lastUpdate                               25.06.2019
-'                                          adapt to the new query api
+'@lastUpdate                               27.06.2019
+'                                          with native parse JSON
 '@TODO                                     add comments
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
 Option Explicit
 
 Private http As Object
-Private j As js
 
 Enum fsType
     INCOME_STMT = 0 '"incomestatements"
@@ -19,15 +18,10 @@ End Enum
 
 Private Sub Class_Initialize()
     Set http = CreateObject("MSXML2.XMLHTTP.3.0")
-    Set j = New js
-    
-    'so that not overwritten
-    j.appendMode = False
 End Sub
 
 Private Sub Class_Terminate()
     Set http = Nothing
-    Set j = Nothing
 End Sub
 
 Public Function profile(Optional ByVal code As String = "0") As Dicts
@@ -39,9 +33,8 @@ Public Function profile(Optional ByVal code As String = "0") As Dicts
     code = Format(code, "000000")
     
     t = post("http://www.cninfo.com.cn/data/project/commonInterface", "mergerMark=sysapi1068&paramStr=scode=" & code, True)
-    j.code = "function parser1(s){return parser(parserJSON(s)[0]);}"
-    
-    d.dict = j.js.Run("parser1", t)
+
+    Set d = d.fromString(t).getVal(0)
     
     Set profile = d
     Set d = Nothing
@@ -54,6 +47,7 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     Dim l As New Lists
     Dim stype As String
     Dim i
+    Dim d As New Dicts
     
     stype = Array("sysapi1075", "sysapi1077", "sysapi1076")(mtype)
     code = Format(code, "000000")
@@ -62,11 +56,9 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     t = post("http://www.cninfo.com.cn/data/project/commonInterface", "mergerMark=" & stype & "&paramStr=scode=" & code & ";rtype=" & quarter & ";sign=1", True)
     
     
-    j.code = "function parser1(s){return parser(parserJSON(s));}"
-    
-    For Each i In j.js.Run("parser1", t)
+    For Each i In d.fromString(t).toArray
         Dim tmp As New Lists
-        l.add tmp.fromArray(Array(i("index"), i("" & year)))
+        l.add tmp.fromArray(Array(i.dict("index"), i.dict("" & year)))
         Set tmp = Nothing
     Next i
 
@@ -74,67 +66,6 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     Set l = Nothing
    
     
-End Function
-
-'@return Array of 3 elements, with the first element of desc and second list of content, third next fullurl
-Public Function DE_law(Optional ByVal law As String = "hgb", Optional ByVal parag As String = "1", Optional ByVal tillEnd As Boolean = False, Optional ByVal fullUrl As String = "") As Variant
-    On Error GoTo hdl  ' wenn kein Weiter vorhanden
-    
-        Dim root As String
-        root = "https://www.gesetze-im-internet.de/" & StrConv(law, vbLowerCase) & "/"
-        
-        Dim doc As MSHTML.HTMLDocument
-        
-        If fullUrl = "" Then
-            fullUrl = root & "__" & parag & ".html"
-        End If
-        
-        Set doc = post(fullUrl)
-
-        Dim title As String
-        title = doc.querySelector(".jnentitel").innerText
-        
-        Dim l As New Lists
-        Dim i, v
-        
-        Dim j As Object
-        Set j = doc.querySelectorAll(".jurAbsatz")  ' for each not fully supported by querySelectorAll
-        
-        For i = 0 To j.length - 1
-             l.add j.Item(i).innerText
-        Next i
-        
-        Dim u As String
-        u = doc.querySelector("#blaettern_weiter > a").getAttribute("href")
-        
-        If InStr(u, "about:") Then
-            u = Right(u, Len(u) - 6)
-        End If
-           
-        If Not tillEnd Then
-            DE_law = Array(parag & "-" & title, l, root & u)
-        Else
-            Dim l1 As New Lists
-            Dim this
-            
-            this = Array(parag & "-" & title, l, root & u)
-            l1.add this
-            
-            Do While True
-                this = DE_law(fullUrl:=this(2))
-                l1.add this
-            Loop
-    
-hdl:
-            Set DE_law = l1
-            Set l1 = Nothing
-           
-        End If
-        
-        Set l = Nothing
-        Set j = Nothing
-        Set doc = Nothing
-
 End Function
 
 '  https://analystcave.com/vba-reference-functions/vba-string-functions/vba-strconv-function/
