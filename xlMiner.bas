@@ -1,8 +1,8 @@
  '''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 '@desc                                     Util Class xlMiner
 '@author                                   Qiou Yang
-'@lastUpdate                               27.06.2019
-'                                          with native parse JSON
+'@lastUpdate                               28.06.2019
+'                                          support new Dicts cls
 '@TODO                                     add comments
 ''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''
 
@@ -58,7 +58,7 @@ Public Function fs(ByVal code As String, ByVal year As Integer, ByVal quarter As
     
     For Each i In d.fromString(t).toArray
         Dim tmp As New Lists
-        l.add tmp.fromArray(Array(i.dict("index"), i.dict("" & year)))
+        l.add tmp.fromArray(Array(i.dict.Item("index"), i.dict.Item("" & year)))
         Set tmp = Nothing
     Next i
 
@@ -119,14 +119,14 @@ Private Function nodeToDom(ByRef nodeStr As String) As MSHTML.HTMLDocument
     
 End Function
 
-Private Function domToList(ByRef Query As String, ByRef doc As MSHTML.HTMLDocument, Optional ByVal elementAsArray As Boolean = False, Optional ByVal childQuery As String, Optional ByVal tabSep As Boolean = False) As Lists
+Private Function domToList(ByRef query As String, ByRef doc As MSHTML.HTMLDocument, Optional ByVal elementAsArray As Boolean = False, Optional ByVal childQuery As String, Optional ByVal tabSep As Boolean = False) As Lists
     
     Dim j As Object
     Dim i
     Dim l As New Lists
     Dim l1 As New Lists
     
-    Set j = doc.querySelectorAll(Query)
+    Set j = doc.querySelectorAll(query)
     
     If j.length > 0 Then
         If elementAsArray Then
