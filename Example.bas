@@ -1,43 +1,43 @@
-
-
-Sub fetch()
-    Dim m As New xlMiner
-    m.SZSE_Dividend("2").dump "1", 1, 2
-  
-    Dim f As New FormatUtil
-    f.formatRng Worksheets("1").Cells(2, 1).CurrentRegion
-    
-    Set m = Nothing
-    Set f = Nothing
+Sub query()
+    main Worksheets("Overview").Cells(1, 4).value
 End Sub
 
+Function main(ByVal code As String)
 
-Sub trail()
+    If Len(Trim(code)) > 0 Then
     
-    Dim f As New FormatUtil
+        Dim f As New FormatUtil
+        Dim m As New xlMiner
+        
+        Dim y As Integer
+        y = 2018
+        
+        Dim q As Integer
+        q = 4
+        
+        Dim d As Dicts
+        
+        Set d = m.profile(code)
+        d.p
     
-    Dim m As New xlMiner
-    m.fs("2", 2018, 2).toRng Cells(1, 1)
-    f.formatRng Cells(1, 1).CurrentRegion
-   
-   
-    m.fs("2", 2018, 2, 1).toRng Cells(1, 3)
-    f.formatRng Cells(1, 3).CurrentRegion
-
+        With Worksheets("Overview")
+            .Cells.clear
+            .Cells(1, 1) = d.dict.Item("ORGNAME")
+            .Cells(1, 2) = y & "Q" & q
+            m.fs(code, 2018, 4, fsType.BALANCE_STMT).toRng .Cells(2, 1)
+            
+            f.formatRng Cells(1, 1).CurrentRegion
+            
+            With .Cells(1, 1).CurrentRegion
+                .Columns.AutoFit
+                
+                With .Columns(2)
+                    .NumberFormat = "#,###"
+                    .HorizontalAlignment = xlRight
+                End With
+            End With
+        End With
     
-     m.fs("2", 2018, 2, 2).toRng Cells(1, 5)
-    f.formatRng Cells(1, 5).CurrentRegion
+    End If
 
-End Sub
-
-
-Private Sub s()
-
-    Dim m1 As New xlMiner
-   ' m1.DE_law("hgb", "1", True).p
-   Debug.Print m1.DE_law("hgb", "285")(0)
-   Debug.Print m1.DE_law("hgb", "285")(1).getVal(0)
-
-End Sub
-
-
+End Function
